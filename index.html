@@ -73,7 +73,7 @@ button[aria-pressed="true"]{background:var(--bulb);color:#22140a;border-color:va
 .go{background:var(--bulb);color:#22140a;border-color:var(--bulb);font-size:15px;padding:12px 20px}
 .cardrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .keys{color:var(--mute);font-size:12px}
-.toast{position:fixed;left:50%;top:22%;transform:translateX(-50%);background:var(--bulb);color:#22140a;font:700 15px var(--body);
+.toast{position:fixed;left:50%;bottom:calc(150px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--bulb);color:#22140a;font:700 15px var(--body);
   padding:10px 16px;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.4);max-width:min(80vw,420px);text-align:center;transition:opacity .4s}
 .toast b{display:block;font:600 11px var(--mono);letter-spacing:.1em;opacity:.75}
 dialog{background:#15122f;color:var(--ink);border:1px solid var(--line);border-radius:16px;padding:20px;max-width:min(560px,92vw);width:100%;box-sizing:border-box}
@@ -418,6 +418,7 @@ function build(ride){
   ev.forEach(e=>{const x=e.i*dx,y=yOf(sm[e.i]);const s=textSprite(e.text,{bg:"#ffb547",color:"#22140a",font:"700 40px Barlow"});
     const lift=12+(ev.indexOf(e)%2)*8;const h=4.2;s.scale.set(h*s.userData.aspect,h,1);s.position.set(x,y+lift+2,-7);world.add(s);
     const pole=new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,lift,5),new THREE.MeshBasicMaterial({color:0xffb547}));pole.position.set(x,y+lift/2,-7);world.add(pole);
+    e.sprite=s;e.pole=pole;
     e.x=x;e.date=dates[e.i];e.done=false;});
 
   // car
@@ -457,6 +458,8 @@ function place(dt){
   const i=idxAt(S.s),p=T.P[i],t=T.Tn[i],n=T.Nn[i];
   basisM.makeBasis(t,n,Zax);T.car.quaternion.setFromRotationMatrix(basisM);T.car.position.copy(p);
   const v=S.view;T.car.visible=v!=="rider";
+  // in the ride cameras, only show the next sign or two so they don't stack up ahead
+  for(const e of T.ev){const d=e.x-p.x,show=v==="side"||(d>-25&&d<110);e.sprite.visible=show;e.pole.visible=show;}
   const aspect=camera.aspect;
   if(v!=="side"&&sideOffset){camera.clearViewOffset();sideOffset=false;}
   if(v==="rider"){
