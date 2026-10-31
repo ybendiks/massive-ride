@@ -21,16 +21,20 @@ module.exports = async (req, res) => {
 
   const url = `https://api.massive.com/v2/aggs/ticker/${encodeURIComponent(ticker)}/range/1/day/${from}/${to}?adjusted=true&sort=asc&limit=50000`;
   try {
+    const t0 = Date.now();
     const r = await fetch(url, { headers: { Authorization: `Bearer ${key}` } });
+    const massive_ms = Date.now() - t0;
     const j = await r.json().catch(() => ({}));
     if (!r.ok) {
-      const msg = j.message || j.error || `Massive returned ${r.status}`;
+      let msg = j.message || j.error || `Massive returned ${r.status}`;
+      if (/plan doesn.t include/i.test(msg)) msg = "That range goes back further than this site's Massive plan covers (about 5 years). Pick a later start date.";
+      if (r.status === 404 || /not found/i.test(msg)) msg = `Massive has no daily bars for ${ticker} in that range. Check the symbol.`;
       return res.status(r.status === 429 ? 429 : 502).json({ error: r.status === 429 ? "Massive's rate limit was hit (the free plan allows 5 calls a minute). Try again in a minute." : msg });
     }
     const results = (j.results || []).map(b => ({ t: b.t, c: b.c }));
     // Daily bars for past dates don't change, so let Vercel's edge cache them.
-    res.setHeader("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
-    return res.status(200).json({ ticker: j.ticker || ticker, count: results.length, results });
+    res.setHeader("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=600");
+    return res.status(200).json({ ticker: j.ticker || ticker, count: results.length, massive_ms, results });
   } catch (e) {
     return res.status(502).json({ error: "Couldn't reach Massive. Try again shortly." });
   }

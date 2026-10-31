@@ -5,8 +5,17 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="Ride a stock chart as a roller coaster. Every rally is a climb, every selloff a drop. Built on Massive market data.">
 <meta property="og:title" content="Massive Ride">
-<meta property="og:description" content="Ride GME's short squeeze, the 2020 COVID crash, or any ticker as a 3D roller coaster.">
+<meta property="og:description" content="Ride GME, Nvidia, the 2025 tariff crash, or any stock as a 3D roller coaster.">
 <meta property="og:type" content="website">
+<meta property="og:url" content="https://massive-ride.vercel.app/">
+<meta property="og:image" content="https://massive-ride.vercel.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Massive Ride">
+<meta name="twitter:description" content="Ride a stock chart as a 3D roller coaster. Built on Massive market data.">
+<meta name="twitter:image" content="https://massive-ride.vercel.app/og.png">
+<link rel="canonical" href="https://massive-ride.vercel.app/">
 <meta name="theme-color" content="#0d0f2b">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230d0f2b'/%3E%3Cpath d='M3 24 L9 18 L13 21 L19 7 L23 15 L29 11' fill='none' stroke='%23ffb547' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <title>Massive Ride</title>
@@ -80,6 +89,13 @@ textarea{width:100%;box-sizing:border-box;min-height:120px;background:#0c0a22;co
 .set output{font:12px var(--mono);color:var(--mute);text-align:right}
 input[type=range]{accent-color:var(--bulb);width:100%}
 .note{font-size:11px;color:var(--mute);max-width:46ch}
+.powered{display:inline-block;margin-top:8px;font:500 12px var(--mono);letter-spacing:.06em;color:var(--mute);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:5px 10px;background:var(--panel)}
+.powered b{color:var(--bulb);font-weight:600}
+.powered:hover{border-color:rgba(255,181,71,.6)}
+.any{margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
+.any label{display:block;font:600 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--mute);margin-bottom:6px}
+.any input{width:9ch;background:#0c0a22;color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:9px 13px;font:600 14px var(--mono);text-transform:uppercase}
+.any .err{margin:6px 0 0;font-size:13px}
 .liverow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:4px 0 8px}
 .liverow label{display:grid;gap:4px;font:600 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
 .liverow input{min-width:0;background:#0c0a22;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px;font:14px var(--mono);text-transform:none;letter-spacing:0}
@@ -92,7 +108,9 @@ input[type=range]{accent-color:var(--bulb);width:100%}
   .controls{align-items:stretch;width:100%}
   .row{justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}
   .row .row{overflow:visible;flex:none}
-  .stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .stats{grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:12px}
+  body.carded .readout{display:none}
+  .card{padding:14px 16px}.card .sub{margin-bottom:10px}.card .keys{display:none}.any{margin-top:10px;padding-top:10px}
 }
 @media (prefers-reduced-motion:reduce){.toast{transition:none}}
 </style>
@@ -106,6 +124,7 @@ input[type=range]{accent-color:var(--bulb);width:100%}
     <div class="brand">
       <h1>Massive&nbsp;Ride</h1>
       <p>A wild ride on real market data. Every rally is a climb, every selloff a drop.</p>
+      <a class="powered" href="https://massive.com" target="_blank" rel="noopener" data-live hidden>Powered by <b>Massive</b></a>
     </div>
     <div class="controls">
       <div class="row" id="rides" role="group" aria-label="Choose a ride"></div>
@@ -117,8 +136,10 @@ input[type=range]{accent-color:var(--bulb);width:100%}
         </div>
         <button id="b-speed" title="Playback speed">1×</button>
         <button id="b-pause" title="Pause (space)">Pause</button>
+        <button id="b-sound" aria-pressed="false">Sound off</button>
         <button id="b-tune">Track</button>
         <button id="b-load">Load Massive data</button>
+        <button id="b-share" data-live hidden>Copy link</button>
       </div>
     </div>
   </div>
@@ -137,6 +158,11 @@ input[type=range]{accent-color:var(--bulb);width:100%}
         <button class="go" id="b-go">Board the ride</button>
         <span class="keys">Space pause · R restart · V camera</span>
       </div>
+      <form class="any" id="any" data-live hidden>
+        <label for="any-tk">Or ride any stock</label>
+        <div class="cardrow"><input id="any-tk" placeholder="AMC" autocomplete="off" spellcheck="false" maxlength="10"><button type="submit" id="any-go">Ride it</button></div>
+        <p class="err" id="any-err"></p>
+      </form>
     </div>
   </div>
 
@@ -157,8 +183,8 @@ input[type=range]{accent-color:var(--bulb);width:100%}
 
 <dialog id="d-load" aria-labelledby="dl-h">
   <h3 id="dl-h">Ride any ticker</h3>
-  <form id="l-live" hidden>
-    <p>Pull daily bars straight from Massive.</p>
+  <form id="l-live" data-live hidden>
+    <p>Pick any US stock or ETF and a date range. The ride is built from Massive's daily bars, split-adjusted.</p>
     <div class="liverow">
       <label for="l-tk">Ticker<input id="l-tk" value="AMC" autocomplete="off" spellcheck="false"></label>
       <label for="l-from">From<input id="l-from" type="date" value="2024-11-01"></label>
@@ -166,8 +192,8 @@ input[type=range]{accent-color:var(--bulb);width:100%}
     </div>
     <p class="err" id="l-lerr"></p>
     <div class="cardrow"><button class="go" id="l-fetch" type="submit">Build the ride</button><button type="button" id="l-close2">Cancel</button></div>
-    <p class="keys" style="margin-top:14px">Or paste a saved response below.</p>
   </form>
+  <div data-nolive>
   <p>Call Massive's Custom Bars endpoint with your API key, then paste the JSON response here or drop the saved file. Use <code>adjusted=true</code> so stock splits don't show up as fake cliffs.</p>
   <span class="url" id="l-url">https://api.massive.com/v2/aggs/ticker/GME/range/1/day/2021-11-01/2026-10-30?adjusted=true&amp;sort=asc&amp;limit=50000&amp;apiKey=YOUR_KEY</span>
   <div class="cardrow" style="margin:8px 0 12px"><button id="l-copy">Copy URL</button><span class="keys" id="l-copied"></span></div>
@@ -177,6 +203,7 @@ input[type=range]{accent-color:var(--bulb);width:100%}
   </div>
   <p class="err" id="l-err"></p>
   <div class="cardrow"><button class="go" id="l-build">Build the ride</button><button id="l-close">Cancel</button></div>
+  </div>
 </dialog>
 
 <dialog id="d-tune" aria-labelledby="dt-h">
@@ -203,22 +230,35 @@ function decode(rec){
 const SERIES={}; for(const k in DATA) SERIES[k]=decode(DATA[k]);
 
 const RIDES=[
-  {id:"squeeze",name:"The Squeeze",ticker:"GME",from:"2020-08-03",to:"2021-06-30",
+  {id:"gme5",name:"GME, Five Years",ticker:"GME",from:"2021-11-01",to:null,
+   sub:"GameStop after the squeeze: a long slide, then Roaring Kitty comes back.",
+   events:[["2022-07-22","4-for-1 split (adjusted out)"],["2024-05-13","Roaring Kitty posts again"],["2024-06-07","Roaring Kitty's livestream"]]},
+  {id:"nvda",name:"AI Gold Rush",ticker:"NVDA",from:"2022-10-03",to:null,
+   sub:"Nvidia from the 2022 low, through ChatGPT and the AI boom.",
+   events:[["2022-11-30","ChatGPT launches"],["2023-05-25","Guidance stuns the Street"],["2024-06-10","10-for-1 split (adjusted out)"],["2025-01-27","DeepSeek selloff"],["2025-04-09","Tariff pause rally"]]},
+  {id:"tariffs",name:"Tariff Shock",ticker:"SPY",from:"2025-01-02",to:"2025-08-29",
+   sub:"The S&P 500 in 2025: Liberation Day, a two-day crash, then the biggest rally in years.",
+   events:[["2025-02-19","Record high, then the slide"],["2025-04-03","Liberation Day tariffs"],["2025-04-04","China retaliates"],["2025-04-09","90-day tariff pause"]]},
+  {id:"bear",name:"The 2022 Bear",ticker:"QQQ",from:"2021-11-01",to:"2023-06-30",
+   sub:"The Nasdaq-100 as rates rose: a year of grinding losses, then the turn.",
+   events:[["2021-11-19","Nasdaq-100 peaks"],["2022-06-13","S&P 500 enters a bear market"],["2022-11-10","Cooler inflation report"],["2022-11-30","ChatGPT launches"]]},
+  {id:"smci",name:"Super Micro",ticker:"SMCI",from:"2023-10-02",to:"2025-02-28",
+   sub:"An AI server maker that went to the moon, joined the S&P 500, then lost its auditor.",
+   events:[["2024-03-18","Joins the S&P 500"],["2024-08-28","Annual report delayed"],["2024-10-01","10-for-1 split (adjusted out)"],["2024-10-30","Auditor Ernst & Young resigns"],["2024-11-18","Hires BDO as new auditor"]]},
+  {id:"tsla",name:"Tesla's Election Run",ticker:"TSLA",from:"2024-09-03",to:"2025-06-30",
+   sub:"Tesla from the 2024 election to the Musk–Trump feud.",
+   events:[["2024-11-06","Election result"],["2024-12-17","Record close"],["2025-03-10","Worst day in years"],["2025-06-05","Musk and Trump feud"]]},
+  {id:"squeeze",name:"The Squeeze",ticker:"GME",from:"2020-08-03",to:"2021-06-30",classic:true,
    sub:"GameStop, Aug 2020 to Jun 2021. Retail traders against short sellers.",
    events:[["2020-08-31","Ryan Cohen's stake disclosed"],["2021-01-11","Cohen joins the board"],["2021-01-28","Brokers restrict buying"],["2021-02-24","The second spike"]]},
-  {id:"gme5",name:"GME, Five Years",ticker:"GME",from:"2021-11-01",to:"2026-10-30",
-   sub:"The long hangover after the squeeze. The chart from the pitch.",
-   events:[["2022-07-22","4-for-1 split (adjusted out)"],["2024-05-13","Roaring Kitty posts again"]]},
-  {id:"covid",name:"COVID Crash",ticker:"SPY",from:"2020-01-02",to:"2020-12-31",
+  {id:"covid",name:"COVID Crash",ticker:"SPY",from:"2020-01-02",to:"2020-12-31",classic:true,
    sub:"The S&P 500 ETF in 2020: the fastest bear market on record, then the rebound.",
    events:[["2020-02-19","Pre-pandemic high"],["2020-03-16","Worst day since 1987"],["2020-03-23","Fed goes unlimited; the bottom"],["2020-11-09","Pfizer vaccine results"]]},
-  {id:"nvda",name:"AI Gold Rush",ticker:"NVDA",from:"2022-10-03",to:"2026-10-30",
-   sub:"Nvidia from the 2022 low through the AI boom.",
-   events:[["2023-05-25","Guidance stuns the Street"],["2024-06-10","10-for-1 split (adjusted out)"],["2025-01-27","DeepSeek selloff"],["2025-04-09","Tariff pause rally"]]},
-  {id:"tsla",name:"Tesla 2020–22",ticker:"TSLA",from:"2020-01-02",to:"2022-12-30",
-   sub:"Up roughly tenfold, then cut by two thirds.",
-   events:[["2020-08-31","5-for-1 split (adjusted out)"],["2020-12-21","Joins the S&P 500"],["2021-10-25","Hertz order, $1T market cap"],["2022-04-14","Musk bids for Twitter"]]},
 ];
+const TODAY=new Date(Date.now()-5*3600e3).toISOString().slice(0,10);
+const addDays=(d,n)=>new Date(Date.parse(d+"T00:00:00Z")+n*864e5).toISOString().slice(0,10);
+function covers(sr,r){if(!sr||!sr.dates.length)return false;const a=sr.dates[0],b=sr.dates[sr.dates.length-1];
+  return a<=addDays(r.from,7)&&b>=r.from&&(!r.to||b>=addDays(r.to,-7));}
 
 function sliceRide(r){
   const s=r.series||SERIES[r.ticker]; const d=[],c=[];
@@ -376,8 +416,8 @@ function build(ride){
   if(!near(st.tr)&&st.tr>2&&st.tr<N-3)ev.push({i:st.tr,text:"Lowest point: "+fmt$(closes[st.tr])});
   ev.sort((a,b)=>a.i-b.i);
   ev.forEach(e=>{const x=e.i*dx,y=yOf(sm[e.i]);const s=textSprite(e.text,{bg:"#ffb547",color:"#22140a",font:"700 40px Barlow"});
-    const h=4.2;s.scale.set(h*s.userData.aspect,h,1);s.position.set(x,y+14,-7);world.add(s);
-    const pole=new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,12,5),new THREE.MeshBasicMaterial({color:0xffb547}));pole.position.set(x,y+6,-7);world.add(pole);
+    const lift=12+(ev.indexOf(e)%2)*8;const h=4.2;s.scale.set(h*s.userData.aspect,h,1);s.position.set(x,y+lift+2,-7);world.add(s);
+    const pole=new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,lift,5),new THREE.MeshBasicMaterial({color:0xffb547}));pole.position.set(x,y+lift/2,-7);world.add(pole);
     e.x=x;e.date=dates[e.i];e.done=false;});
 
   // car
@@ -388,7 +428,7 @@ function build(ride){
   const beacon=new THREE.Mesh(new THREE.SphereGeometry(1,16,12),new THREE.MeshBasicMaterial({color:0xffe2a8,fog:false}));beacon.position.y=3;car.add(beacon);
   world.add(car);
 
-  $("m-src").textContent=ride.source==="massive"?"Data: Massive daily aggregates, split-adjusted":"Sample data: split-adjusted daily closes";
+  $("m-src").textContent=ride.source==="massive"?`Massive · ${N.toLocaleString()} daily bars${ride.ms?` · API responded in ${ride.ms} ms`:""}`:"Sample data: split-adjusted daily closes";
   T={ride,dates,closes,sm,N,dx,H,base,W,P,Tn,Nn,M,ds,len,ev,st,car,beacon,yOf};
   drawMapBase();fillCard();
   resetRide();
@@ -404,12 +444,21 @@ function dayAt(i){return Math.max(0,Math.min(T.N-1,T.P[i].x/T.dx));}
 
 const tmpV=new THREE.Vector3(),tmpL=new THREE.Vector3(),camUp=new THREE.Vector3(0,1,0),camPos=new THREE.Vector3(),camLook=new THREE.Vector3();
 const basisM=new THREE.Matrix4(),Zax=new THREE.Vector3(0,0,1);
-let firstPlace=true;
+let firstPlace=true,sideOffset=false;
+function freeRect(){
+  const W=innerWidth,H=innerHeight,top=document.querySelector(".top").getBoundingClientRect().bottom+12,
+    bot=document.querySelector(".bottom").getBoundingClientRect().top-12,card=$("card");
+  let r={x:16,y:top,w:W-32,h:Math.max(60,bot-top)};
+  if(!card.hidden){const c=card.getBoundingClientRect();const right={x:c.right+16,y:top,w:W-16-(c.right+16),h:Math.max(60,bot-top)};
+    const above={x:16,y:top,w:W-32,h:c.top-12-top};
+    r=right.w>=Math.max(320,W*0.35)?right:above.h>=60?above:r;}
+  return r;}
 function place(dt){
   const i=idxAt(S.s),p=T.P[i],t=T.Tn[i],n=T.Nn[i];
   basisM.makeBasis(t,n,Zax);T.car.quaternion.setFromRotationMatrix(basisM);T.car.position.copy(p);
   const v=S.view;T.car.visible=v!=="rider";
   const aspect=camera.aspect;
+  if(v!=="side"&&sideOffset){camera.clearViewOffset();sideOffset=false;}
   if(v==="rider"){
     const j=idxAt(S.s+9);const ahead=T.P[j],na=T.Nn[j];
     camPos.copy(p).addScaledVector(n,2.1);camLook.copy(ahead).addScaledVector(na,1.6);
@@ -421,10 +470,12 @@ function place(dt){
     camPos.lerp(tmpV,firstPlace?1:Math.min(1,dt*4));camera.position.copy(camPos);
     camera.up.set(0,1,0);camera.lookAt(tmpL.set(p.x+6,p.y+1,p.z));camera.fov=68;T.beacon.visible=false;
   }else{
-    // side: frame the whole chart like the observer from the field
-    const w=T.W+140,h=T.H+40,cx=T.W/2,cy=T.base+T.H/2;camera.fov=40;
-    const vf=THREE.MathUtils.degToRad(camera.fov);const dz=Math.max((h/2)/Math.tan(vf/2),(w/2)/(Math.tan(vf/2)*aspect))*1.08;
-    camera.position.set(cx,cy+dz*0.02,dz);camera.up.set(0,1,0);camera.lookAt(cx,cy-h*0.22,0);
+    // side: frame the whole chart like the observer from the field, in the open screen area beside the HUD
+    const w=T.W+140,h=T.H+60,cx=T.W/2,cy=T.base+T.H/2;camera.fov=40;
+    const R=freeRect(),FW=innerWidth,FH=innerHeight,tn=Math.tan(THREE.MathUtils.degToRad(camera.fov)/2);
+    const dz=Math.max(h*FH/(R.h*2*tn),w*FH/(R.w*2*tn))*1.04;
+    camera.position.set(cx,cy,dz);camera.up.set(0,1,0);camera.lookAt(cx,cy,0);
+    camera.setViewOffset(FW,FH,FW/2-(R.x+R.w/2),FH/2-(R.y+R.h/2),FW,FH);sideOffset=true;
     T.beacon.visible=true;T.beacon.scale.setScalar(Math.max(1,dz/260));
   }
   camera.updateProjectionMatrix();firstPlace=false;
@@ -447,7 +498,7 @@ function step(dt){
 const $=id=>document.getElementById(id);
 function updateHud(){
   const i=idxAt(S.s),fd=dayAt(i),d=Math.round(fd);const c=T.closes[d],c0=T.closes[0];
-  $("r-tick").textContent=T.ride.ticker+" · "+T.ride.name;
+  $("r-tick").textContent=T.ride.name===T.ride.ticker?T.ride.ticker:T.ride.ticker+" · "+T.ride.name;
   $("r-price").textContent=fmt$(c);
   $("r-date").textContent=fmtDate(T.dates[d]);
   const ch=c/c0-1;const e=$("r-chg");e.textContent=fmtPct(ch)+" since boarding";e.className=ch>=0?"up":"down";
@@ -482,53 +533,88 @@ function fillCard(){
   $("c-start").textContent=fmt$(closes[0]);
   $("c-peak").textContent=fmt$(closes[st.pk]);
   $("c-worst").innerHTML=`<span class="down">${fmtPct(st.worst)}</span>`;
-  $("b-go").textContent="Board the ride";$("card").hidden=false;
+  $("b-go").textContent="Board the ride";cardShown(true);
 }
 function showEnd(){
   const {closes,dates,st}=T,ch=closes[T.N-1]/closes[0]-1;
   $("c-tick").textContent="Ride complete";$("c-title").textContent=`${T.ride.ticker}: ${fmt$(closes[0])} → ${fmt$(closes[T.N-1])}`;
   $("c-sub").innerHTML=`${fmtDate(dates[0])} to ${fmtDate(dates[T.N-1])}. <span class="${ch>=0?"up":"down"}">${fmtPct(ch)}</span> overall.`;
   $("c-start").textContent=fmt$(closes[0]);$("c-peak").textContent=fmt$(closes[st.pk]);
-  $("b-go").textContent="Ride again";$("card").hidden=false;
+  $("b-go").textContent="Ride again";cardShown(true);
 }
 
 /* ---------- controls ---------- */
-const ridesEl=$("rides");let current=RIDES[0];
-function renderRideChips(){ridesEl.innerHTML="";RIDES.forEach((r,k)=>{const b=document.createElement("button");b.className="chip";
+const ridesEl=$("rides");let current=null;
+const avail=()=>RIDES.filter(r=>r.ok);
+function renderRideChips(){ridesEl.innerHTML="";avail().forEach(r=>{const b=document.createElement("button");b.className="chip";
   b.innerHTML=`${r.name}<small>${r.ticker}</small>`;b.setAttribute("aria-pressed",r===current);b.onclick=()=>choose(r);ridesEl.appendChild(b);});}
-async function choose(r){current=r;renderRideChips();firstPlace=true;
-  if(LIVE.ok&&!r.liveTried&&r.from){r.liveTried=true;
-    $("c-sub").textContent="Loading "+r.ticker+" from Massive…";
-    try{const s=await fetchBars(r.ticker,r.from,r.to);const want=sliceRide(r).closes.length;
-      if(s.closes.length>=Math.max(10,want*0.9)){r.series=s;r.source="massive";}}catch(e){}
-    if(current!==r)return;}
-  build(r);}
+function choose(r){current=r;renderRideChips();firstPlace=true;build(r);
+  S.mult=T.len>5200?4:T.len>2600?2:1;$("b-speed").textContent=S.mult+"×";syncUrl();}
 const LIVE={ok:false};
 function toET(t){return new Date(t+12*3600e3).toISOString().slice(0,10);}
 async function fetchBars(tk,from,to){
-  const res=await fetch(`/api/bars?ticker=${encodeURIComponent(tk)}&from=${from}&to=${to}`);
+  const t0=performance.now();
+  const res=await fetch(`/api/bars?ticker=${encodeURIComponent(tk)}&from=${from}&to=${to}&v=3`);
   const j=await res.json().catch(()=>({}));
   if(!res.ok)throw new Error(j.error||("Massive returned "+res.status));
   const rows=(j.results||[]).filter(r=>typeof r.t==="number"&&typeof r.c==="number");
-  return {dates:rows.map(r=>toET(r.t)),closes:rows.map(r=>r.c)};
+  return {dates:rows.map(r=>toET(r.t)),closes:rows.map(r=>r.c),ms:j.massive_ms||null};
+}
+async function loadRide(r){
+  if(LIVE.ok&&r.classic){r.ok=false;return r;}
+  if(LIVE.ok){try{const sr=await fetchBars(r.ticker,r.from,r.to||TODAY);
+      if(covers(sr,r)){r.series=sr;r.source="massive";r.ms=sr.ms;r.ok=true;return r;}}catch(e){}}
+  if(LIVE.ok&&r.classic){r.ok=false;return r;}
+  r.ok=covers(SERIES[r.ticker],r);r.source="sample";return r;
 }
 async function probeLive(){
   if(!/^https?:$/.test(location.protocol)||/claude\.ai$|claudeusercontent/.test(location.hostname))return;
   try{const r=await fetch("/api/bars?ping=1");const j=await r.json();LIVE.ok=!!j.configured;}catch(e){}
-  $("l-live").hidden=!LIVE.ok;
+  document.querySelectorAll("[data-live]").forEach(el=>el.hidden=!LIVE.ok);
+  document.querySelectorAll("[data-nolive]").forEach(el=>el.hidden=LIVE.ok);
+  if(LIVE.ok){$("b-load").textContent="Any ticker";$("l-from").value=addDays(TODAY,-730);$("l-to").value=TODAY;}
 }
+function syncUrl(){if(!LIVE.ok||!current)return;const u=new URL(location.href);u.search="";
+  if(current.custom){u.searchParams.set("t",current.ticker);if(current.from)u.searchParams.set("from",current.from);if(current.to)u.searchParams.set("to",current.to);}
+  else u.searchParams.set("ride",current.id);
+  history.replaceState(null,"",u);}
+const fiveYearsAgo=()=>addDays(TODAY,-1820);
+async function customRide(tk,from,to){
+  const sr=await fetchBars(tk,from,to);
+  if(sr.closes.length<10)throw new Error(`Massive has fewer than 10 trading days of ${tk} in that range. Check the symbol or widen the dates.`);
+  const full=!from||from<=addDays(sr.dates[0],-7);
+  const ride={id:"t-"+tk+from+to,name:tk,ticker:tk,series:sr,source:"massive",ms:sr.ms,ok:true,custom:true,from,to,
+    sub:`${fmtMon(sr.dates[0])} to ${fmtMon(sr.dates[sr.dates.length-1])}: ${sr.closes.length.toLocaleString()} daily bars from Massive.`,events:[]};
+  const k=RIDES.findIndex(r=>r.id===ride.id);if(k>=0)RIDES.splice(k,1);RIDES.push(ride);choose(ride);return ride;
+}
+const TK=/^[A-Z][A-Z0-9.\-]{0,9}$/;
+$("any").onsubmit=async e=>{e.preventDefault();const tk=$("any-tk").value.trim().toUpperCase(),err=$("any-err");err.textContent="";
+  if(!TK.test(tk)){err.textContent="Enter a US ticker symbol, like AMC or BRK.B.";return;}
+  const b=$("any-go");b.textContent="Loading…";b.disabled=true;
+  try{await customRide(tk,fiveYearsAgo(),TODAY);$("any-tk").value="";}catch(x){err.textContent=x.message;}finally{b.textContent="Ride it";b.disabled=false;}};
 $("l-close2").onclick=()=>dL.close();
 $("l-live").onsubmit=async e=>{e.preventDefault();const tk=$("l-tk").value.trim().toUpperCase(),from=$("l-from").value,to=$("l-to").value;
   const err=$("l-lerr");err.textContent="";
-  if(!/^[A-Z][A-Z0-9.\-]{0,9}$/.test(tk)){err.textContent="Enter a US ticker symbol, like AMC or BRK.B.";return;}
+  if(!TK.test(tk)){err.textContent="Enter a US ticker symbol, like AMC or BRK.B.";return;}
   if(!from||!to||from>=to){err.textContent="Pick a start date before the end date.";return;}
   $("l-fetch").textContent="Loading…";
-  try{const s=await fetchBars(tk,from,to);
-    if(s.closes.length<10){err.textContent="Massive returned fewer than 10 trading days for that range. Check the ticker, or widen the dates (the free plan covers the last 2 years).";return;}
-    const ride={id:"live-"+tk+from+to,name:tk+" ride",ticker:tk,series:s,source:"massive",liveTried:true,sub:`${s.closes.length.toLocaleString()} daily bars from Massive.`,events:[]};
-    RIDES.push(ride);dL.close();choose(ride);
-  }catch(x){err.textContent=x.message;}finally{$("l-fetch").textContent="Build the ride";}};
-function board(){if(S.done)resetRide();$("card").hidden=true;S.running=true;S.paused=false;S.v=Math.max(S.v,12);
+  try{await customRide(tk,from,to);dL.close();}catch(x){err.textContent=x.message;}finally{$("l-fetch").textContent="Build the ride";}};
+$("b-share").onclick=()=>{const u=location.href,b=$("b-share");const done=t=>{b.textContent=t;setTimeout(()=>b.textContent="Copy link",1800);};
+  try{navigator.clipboard.writeText(u).then(()=>done("Link copied"),()=>done("Copy from the address bar"));}catch(e){done("Copy from the address bar");}};
+// sound: wind rises with speed, the chain clacks on slow climbs
+const SND={on:false,ctx:null,next:0};
+function sndStart(){try{const ctx=new (window.AudioContext||window.webkitAudioContext)();const n=ctx.sampleRate*2,buf=ctx.createBuffer(1,n,ctx.sampleRate),d=buf.getChannelData(0);
+  for(let i=0;i<n;i++)d[i]=Math.random()*2-1;const src=ctx.createBufferSource();src.buffer=buf;src.loop=true;
+  const bp=ctx.createBiquadFilter();bp.type="bandpass";bp.Q.value=0.6;const g=ctx.createGain();g.gain.value=0;
+  src.connect(bp).connect(g).connect(ctx.destination);src.start();Object.assign(SND,{ctx,wind:g,bp});}catch(e){SND.ctx=null;}}
+function sndTick(){if(!SND.ctx)return;const t=SND.ctx.currentTime,run=SND.on&&S.running&&!S.paused&&T;const v=run?S.v:0;
+  SND.wind.gain.setTargetAtTime(run?Math.min(0.45,Math.pow(v/105,1.5)*0.55):0,t,0.12);SND.bp.frequency.setTargetAtTime(250+v*16,t,0.12);
+  if(run&&T.Tn[idxAt(S.s)].y>0.08&&S.v<VMIN+4&&t>SND.next){const o=SND.ctx.createOscillator(),g=SND.ctx.createGain();o.type="square";o.frequency.value=170;
+    g.gain.setValueAtTime(0.06,t);g.gain.exponentialRampToValueAtTime(0.0008,t+0.035);o.connect(g).connect(SND.ctx.destination);o.start(t);o.stop(t+0.04);SND.next=t+0.12/S.mult;}}
+$("b-sound").onclick=()=>{SND.on=!SND.on;if(SND.on&&!SND.ctx)sndStart();if(SND.ctx&&SND.ctx.state==="suspended")SND.ctx.resume();
+  $("b-sound").textContent=SND.on?"Sound on":"Sound off";$("b-sound").setAttribute("aria-pressed",SND.on);};
+function cardShown(v){$("card").hidden=!v;document.body.classList.toggle("carded",v);}
+function board(){if(S.done)resetRide();cardShown(false);S.running=true;S.paused=false;S.v=Math.max(S.v,12);
   if(S.view==="side"&&!reduce)setView("rider");}
 $("b-go").onclick=board;
 function setView(v){S.view=v;["rider","chase","side"].forEach(k=>$("v-"+k).setAttribute("aria-pressed",k===v));firstPlace=true;}
@@ -540,7 +626,7 @@ addEventListener("keydown",e=>{if(document.querySelector("dialog[open]")||e.targ
   if(e.code==="Space"){e.preventDefault();if(!S.running&&!$("card").hidden)board();else togglePause();}
   else if(e.key==="r"||e.key==="R"){resetRide();fillCard();}
   else if(e.key==="v"||e.key==="V"){setView(S.view==="rider"?"chase":S.view==="chase"?"side":"rider");}
-  else if(/^[1-9]$/.test(e.key)&&RIDES[+e.key-1])choose(RIDES[+e.key-1]);});
+  else if(/^[1-9]$/.test(e.key)&&avail()[+e.key-1])choose(avail()[+e.key-1]);});
 
 // tune dialog
 const dT=$("d-tune");$("b-tune").onclick=()=>dT.showModal();$("t-close").onclick=()=>dT.close();
@@ -565,7 +651,7 @@ $("l-build").onclick=()=>{
   
   const series={dates:rows.map(r=>toET(r.t)),closes:rows.map(r=>r.c)};
   const tk=(j.ticker||"CUSTOM").toUpperCase();
-  const ride={id:"custom-"+tk,name:tk+" ride",ticker:tk,series,sub:`Your Massive data: ${rows.length.toLocaleString()} daily bars.`,events:[]};
+  const ride={id:"custom-"+tk,name:tk,ticker:tk,series,ok:true,sub:`Your Massive data: ${rows.length.toLocaleString()} daily bars.`,events:[]};
   const k=RIDES.findIndex(r=>r.id===ride.id);if(k>=0)RIDES[k]=ride;else RIDES.push(ride);
   ride.source="massive";dL.close();choose(ride);
 };
@@ -577,9 +663,25 @@ addEventListener("resize",resize);
 let last=performance.now(),hudTick=0;
 function frame(now){const dt=Math.min(0.05,(now-last)/1000);last=now;
   if(T){step(dt);place(dt);hudTick+=dt;if(hudTick>0.05){hudTick=0;updateHud();}}
-  renderer.render(scene,camera);requestAnimationFrame(frame);}
-resize();renderRideChips();requestAnimationFrame(frame);
-(document.fonts?document.fonts.ready:Promise.resolve()).then(async()=>{await probeLive();choose(current);});
+  renderer.render(scene,camera);sndTick();requestAnimationFrame(frame);}
+resize();requestAnimationFrame(frame);
+async function init(){
+  await probeLive();
+  const q=new URLSearchParams(location.search);
+  if(LIVE.ok){
+    const want=RIDES.find(r=>r.id===q.get("ride"))||RIDES[0];
+    await loadRide(want);
+    const tk=(q.get("t")||"").toUpperCase();
+    let started=false;
+    if(TK.test(tk)){try{await customRide(tk,q.get("from")||fiveYearsAgo(),q.get("to")||TODAY);started=true;}catch(e){toast(TODAY,e.message);}}
+    if(!started)choose(want.ok?want:RIDES.find(r=>covers(SERIES[r.ticker],r)&&(r.ok=true)));
+    Promise.all(RIDES.filter(r=>r!==want&&!r.custom).map(loadRide)).then(renderRideChips);
+  }else{
+    RIDES.forEach(r=>r.ok=covers(SERIES[r.ticker],r));
+    choose(avail()[0]);
+  }
+}
+(document.fonts?document.fonts.ready:Promise.resolve()).then(init);
 </script>
 
 </body>
