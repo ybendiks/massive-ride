@@ -20,20 +20,16 @@ npx vercel --prod
 
 ## How data works
 
-- `api/bars.js` calls Massive's Custom Bars endpoint
-  (`/v2/aggs/ticker/{ticker}/range/1/day/{from}/{to}?adjusted=true`) with the key from the
-  environment, so the key never reaches the browser. Responses are cached at Vercel's edge for an hour.
-- Every preset ride loads live from Massive on page load. The footer shows the bar count and how fast
-  Massive answered.
-- The plan this site runs on covers about five years of daily history, so the presets all start after
-  Nov 2021. Two classic rides (the 2021 GME squeeze and the 2020 COVID crash) are defined in the code with
-  `classic: true` and stay hidden on the live site until the plan covers them.
-- Anyone can ride any US stock or ETF: type a ticker on the boarding card, or use "Any ticker" for custom dates.
+- `api/bars.js` serves daily bars for the six fixed rides only (`/api/bars?ride=gme5`). It calls
+  Massive's Custom Bars endpoint (`/v2/aggs/ticker/{ticker}/range/1/day/{from}/{to}?adjusted=true`)
+  with the key from the environment. The key never reaches the browser, and the function can't be used
+  to fetch any other ticker or date range. Responses are cached at Vercel's edge for an hour.
+- Rides: `gme5`, `nvda`, `tariffs`, `bear`, `smci`, `tsla`. To change the lineup, edit the `RIDES`
+  table in both `api/bars.js` and `index.html`.
+- The footer shows how many bars Massive returned and how fast it answered.
 
 ## Share links
 
-- `?ride=gme5` (also `nvda`, `tariffs`, `bear`, `smci`, `tsla`) opens a preset.
-- `?t=AMC` opens any ticker over the last five years; add `&from=YYYY-MM-DD&to=YYYY-MM-DD` for a custom window.
-- "Copy link" copies the link for whatever ride is on screen.
+`?ride=gme5` (also `nvda`, `tariffs`, `bear`, `smci`, `tsla`) opens a ride. "Copy link" copies the link for the ride on screen.
 
 Keyboard: Space pause, R restart, V switch camera, 1–6 pick a ride.

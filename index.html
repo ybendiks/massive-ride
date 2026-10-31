@@ -138,7 +138,7 @@ input[type=range]{accent-color:var(--bulb);width:100%}
         <button id="b-pause" title="Pause (space)">Pause</button>
         <button id="b-sound" aria-pressed="false">Sound off</button>
         <button id="b-tune">Track</button>
-        <button id="b-load">Load Massive data</button>
+        <button id="b-load" data-nolive>Load Massive data</button>
         <button id="b-share" data-live hidden>Copy link</button>
       </div>
     </div>
@@ -158,11 +158,6 @@ input[type=range]{accent-color:var(--bulb);width:100%}
         <button class="go" id="b-go">Board the ride</button>
         <span class="keys">Space pause · R restart · V camera</span>
       </div>
-      <form class="any" id="any" data-live hidden>
-        <label for="any-tk">Or ride any stock</label>
-        <div class="cardrow"><input id="any-tk" placeholder="AMC" autocomplete="off" spellcheck="false" maxlength="10"><button type="submit" id="any-go">Ride it</button></div>
-        <p class="err" id="any-err"></p>
-      </form>
     </div>
   </div>
 
@@ -183,16 +178,6 @@ input[type=range]{accent-color:var(--bulb);width:100%}
 
 <dialog id="d-load" aria-labelledby="dl-h">
   <h3 id="dl-h">Ride any ticker</h3>
-  <form id="l-live" data-live hidden>
-    <p>Pick any US stock or ETF and a date range. The ride is built from Massive's daily bars, split-adjusted.</p>
-    <div class="liverow">
-      <label for="l-tk">Ticker<input id="l-tk" value="AMC" autocomplete="off" spellcheck="false"></label>
-      <label for="l-from">From<input id="l-from" type="date" value="2024-11-01"></label>
-      <label for="l-to">To<input id="l-to" type="date" value="2026-10-30"></label>
-    </div>
-    <p class="err" id="l-lerr"></p>
-    <div class="cardrow"><button class="go" id="l-fetch" type="submit">Build the ride</button><button type="button" id="l-close2">Cancel</button></div>
-  </form>
   <div data-nolive>
   <p>Call Massive's Custom Bars endpoint with your API key, then paste the JSON response here or drop the saved file. Use <code>adjusted=true</code> so stock splits don't show up as fake cliffs.</p>
   <span class="url" id="l-url">https://api.massive.com/v2/aggs/ticker/GME/range/1/day/2021-11-01/2026-10-30?adjusted=true&amp;sort=asc&amp;limit=50000&amp;apiKey=YOUR_KEY</span>
@@ -555,9 +540,8 @@ function choose(r){current=r;renderRideChips();firstPlace=true;build(r);
   S.mult=T.len>5200?4:T.len>2600?2:1;$("b-speed").textContent=S.mult+"×";syncUrl();}
 const LIVE={ok:false};
 function toET(t){return new Date(t+12*3600e3).toISOString().slice(0,10);}
-async function fetchBars(tk,from,to){
-  const t0=performance.now();
-  const res=await fetch(`/api/bars?ticker=${encodeURIComponent(tk)}&from=${from}&to=${to}&v=3`);
+async function fetchBars(id){
+  const res=await fetch(`/api/bars?ride=${encodeURIComponent(id)}&v=4`);
   const j=await res.json().catch(()=>({}));
   if(!res.ok)throw new Error(j.error||("Massive returned "+res.status));
   const rows=(j.results||[]).filter(r=>typeof r.t==="number"&&typeof r.c==="number");
@@ -565,7 +549,7 @@ async function fetchBars(tk,from,to){
 }
 async function loadRide(r){
   if(LIVE.ok&&r.classic){r.ok=false;return r;}
-  if(LIVE.ok){try{const sr=await fetchBars(r.ticker,r.from,r.to||TODAY);
+  if(LIVE.ok){try{const sr=await fetchBars(r.id);
       if(covers(sr,r)){r.series=sr;r.source="massive";r.ms=sr.ms;r.ok=true;return r;}}catch(e){}}
   if(LIVE.ok&&r.classic){r.ok=false;return r;}
   r.ok=covers(SERIES[r.ticker],r);r.source="sample";return r;
@@ -575,33 +559,11 @@ async function probeLive(){
   try{const r=await fetch("/api/bars?ping=1");const j=await r.json();LIVE.ok=!!j.configured;}catch(e){}
   document.querySelectorAll("[data-live]").forEach(el=>el.hidden=!LIVE.ok);
   document.querySelectorAll("[data-nolive]").forEach(el=>el.hidden=LIVE.ok);
-  if(LIVE.ok){$("b-load").textContent="Any ticker";$("l-from").value=addDays(TODAY,-730);$("l-to").value=TODAY;}
 }
 function syncUrl(){if(!LIVE.ok||!current)return;const u=new URL(location.href);u.search="";
-  if(current.custom){u.searchParams.set("t",current.ticker);if(current.from)u.searchParams.set("from",current.from);if(current.to)u.searchParams.set("to",current.to);}
-  else u.searchParams.set("ride",current.id);
+  if(!current.custom)u.searchParams.set("ride",current.id);
   history.replaceState(null,"",u);}
-const fiveYearsAgo=()=>addDays(TODAY,-1820);
-async function customRide(tk,from,to){
-  const sr=await fetchBars(tk,from,to);
-  if(sr.closes.length<10)throw new Error(`Massive has fewer than 10 trading days of ${tk} in that range. Check the symbol or widen the dates.`);
-  const full=!from||from<=addDays(sr.dates[0],-7);
-  const ride={id:"t-"+tk+from+to,name:tk,ticker:tk,series:sr,source:"massive",ms:sr.ms,ok:true,custom:true,from,to,
-    sub:`${fmtMon(sr.dates[0])} to ${fmtMon(sr.dates[sr.dates.length-1])}: ${sr.closes.length.toLocaleString()} daily bars from Massive.`,events:[]};
-  const k=RIDES.findIndex(r=>r.id===ride.id);if(k>=0)RIDES.splice(k,1);RIDES.push(ride);choose(ride);return ride;
-}
 const TK=/^[A-Z][A-Z0-9.\-]{0,9}$/;
-$("any").onsubmit=async e=>{e.preventDefault();const tk=$("any-tk").value.trim().toUpperCase(),err=$("any-err");err.textContent="";
-  if(!TK.test(tk)){err.textContent="Enter a US ticker symbol, like AMC or BRK.B.";return;}
-  const b=$("any-go");b.textContent="Loading…";b.disabled=true;
-  try{await customRide(tk,fiveYearsAgo(),TODAY);$("any-tk").value="";}catch(x){err.textContent=x.message;}finally{b.textContent="Ride it";b.disabled=false;}};
-$("l-close2").onclick=()=>dL.close();
-$("l-live").onsubmit=async e=>{e.preventDefault();const tk=$("l-tk").value.trim().toUpperCase(),from=$("l-from").value,to=$("l-to").value;
-  const err=$("l-lerr");err.textContent="";
-  if(!TK.test(tk)){err.textContent="Enter a US ticker symbol, like AMC or BRK.B.";return;}
-  if(!from||!to||from>=to){err.textContent="Pick a start date before the end date.";return;}
-  $("l-fetch").textContent="Loading…";
-  try{await customRide(tk,from,to);dL.close();}catch(x){err.textContent=x.message;}finally{$("l-fetch").textContent="Build the ride";}};
 $("b-share").onclick=()=>{const u=location.href,b=$("b-share");const done=t=>{b.textContent=t;setTimeout(()=>b.textContent="Copy link",1800);};
   try{navigator.clipboard.writeText(u).then(()=>done("Link copied"),()=>done("Copy from the address bar"));}catch(e){done("Copy from the address bar");}};
 // sound: wind rises with speed, the chain clacks on slow climbs
@@ -674,10 +636,7 @@ async function init(){
   if(LIVE.ok){
     const want=RIDES.find(r=>r.id===q.get("ride"))||RIDES[0];
     await loadRide(want);
-    const tk=(q.get("t")||"").toUpperCase();
-    let started=false;
-    if(TK.test(tk)){try{await customRide(tk,q.get("from")||fiveYearsAgo(),q.get("to")||TODAY);started=true;}catch(e){toast(TODAY,e.message);}}
-    if(!started)choose(want.ok?want:RIDES.find(r=>covers(SERIES[r.ticker],r)&&(r.ok=true)));
+    choose(want.ok?want:RIDES.find(r=>covers(SERIES[r.ticker],r)&&(r.ok=true)));
     Promise.all(RIDES.filter(r=>r!==want&&!r.custom).map(loadRide)).then(renderRideChips);
   }else{
     RIDES.forEach(r=>r.ok=covers(SERIES[r.ticker],r));
