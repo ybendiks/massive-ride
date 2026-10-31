@@ -1,0 +1,5 @@
+{
+  "name": "massive-ride",
+  "private": true,
+  "engines": { "node": ">=18" }
+}

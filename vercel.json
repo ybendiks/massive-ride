@@ -1,0 +1,4 @@
+{
+  "cleanUrls": true,
+  "functions": { "api/bars.js": { "maxDuration": 10 } }
+}
